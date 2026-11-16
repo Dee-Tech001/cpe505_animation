@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>3D Animations</title>
+<style>
+*{margin:0;box-sizing:border-box}
+html,body{height:100%;background:#07080d;color:#e8ecf4;font-family:system-ui,sans-serif;overflow:hidden}
+canvas{display:block;position:fixed;inset:0;width:100%;height:100%;touch-action:none}
+nav{position:fixed;top:12px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:2;flex-wrap:wrap;justify-content:center;width:96vw}
+nav button{background:#161a26cc;color:#cfd6e6;border:1px solid #2b3350;padding:8px 14px;border-radius:999px;font:600 13px system-ui;cursor:pointer;backdrop-filter:blur(6px)}
+nav button.on{background:#4f7cff;color:#fff;border-color:#4f7cff}
+#cap{position:fixed;left:50%;bottom:7vh;transform:translateX(-50%);width:min(780px,90vw);text-align:center;font:600 clamp(16px,2.4vw,26px) Georgia,serif;text-shadow:0 2px 14px #000;min-height:2.6em;z-index:2;pointer-events:none}
+#cap b{display:block;font:700 12px system-ui;letter-spacing:.22em;opacity:.7;margin-bottom:6px}
+#hint{position:fixed;left:12px;bottom:10px;font:12px system-ui;opacity:.5;z-index:2}
+</style></head><body>
+<nav><button data-s="0" class="on">Cat &amp; Mouse</button><button data-s="1">Car Orbit</button><button data-s="2">The Conversation</button></nav>
+<div id="cap"></div><div id="hint">Drag to look around</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const T=THREE,PI=Math.PI;
+const R=new T.WebGLRenderer({antialias:true});
+R.setPixelRatio(Math.min(devicePixelRatio,2));R.shadowMap.enabled=true;R.shadowMap.type=T.PCFSoftShadowMap;
+R.toneMapping=T.ACESFilmicToneMapping;R.outputEncoding=T.sRGBEncoding;document.body.prepend(R.domElement);
+const cam=new T.PerspectiveCamera(50,1,.1,200);
+function rs(){R.setSize(innerWidth,innerHeight);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()}
+addEventListener('resize',rs);rs();
+
+// ---------- helpers ----------
+const M=(c,o={})=>new T.MeshStandardMaterial(Object.assign({color:c,roughness:.7},o));
+const mesh=(g,m,p=[0,0,0],par)=>{const o=new T.Mesh(g,m);o.position.set(...p);o.castShadow=o.receiveShadow=true;if(par)par.add(o);return o};
+const S=r=>new T.SphereGeometry(r,24,18),C=(a,b,h,n=20)=>new T.CylinderGeometry(a,b,h,n),B=(x,y,z)=>new T.BoxGeometry(x,y,z);
+const wrap=x=>((x+PI)%(2*PI)+2*PI)%(2*PI)-PI;
+const lerp=(a,b,k)=>a+(b-a)*k;
+function mk(bg,fog){const s=new T.Scene();s.background=new T.Color(bg);s.fog=new T.Fog(bg,fog[0],fog[1]);return s}
+function stage(s,r,c){const f=mesh(new T.CircleGeometry(r,64),M(c,{roughness:.9}));f.rotation.x=-PI/2;f.castShadow=false;s.add(f)}
+function lights(s,i,col,pos){
+  s.add(new T.HemisphereLight(0x9bb4ff,0x1a1a2a,.55));
+  const d=new T.DirectionalLight(col,i);d.position.set(...pos);d.castShadow=true;d.shadow.mapSize.set(1024,1024);
+  const c=d.shadow.camera;c.left=c.bottom=-14;c.right=c.top=14;s.add(d)}
+
+// ---------- 1. CAT & MOUSE ----------
+function sceneCat(){
+  const s=mk(0x0b1020,[18,45]);lights(s,1.1,0xfff2dd,[6,12,6]);stage(s,14,0x1b2440);
+  const ring=mesh(new T.RingGeometry(4.05,4.3,96),M(0x2de2c8,{emissive:0x2de2c8,emissiveIntensity:.9}));
+  ring.rotation.x=-PI/2;ring.position.y=.02;ring.castShadow=false;s.add(ring);
+  const fur=M(0xd98b3a,{roughness:.9}),cream=M(0xf2d3a5,{roughness:.9}),pink=M(0xf4a6b8),dk=M(0x111111);
+  // cat
+  const cat=new T.Group();s.add(cat);
+  mesh(S(1),fur,[0,1,0],cat).scale.set(.85,1.05,1);
+  mesh(S(.7),cream,[0,.9,.55],cat).scale.set(.8,1,.5);
+  [-1,1].forEach(x=>{
+    mesh(S(.5),fur,[x*.62,.5,-.15],cat);
+    mesh(C(.16,.14,.9),fur,[x*.3,.45,.7],cat);
+    mesh(S(.2),cream,[x*.3,.08,.85],cat).scale.set(1,.6,1.3)});
+  const head=new T.Group();head.position.set(0,2.1,.2);cat.add(head);
+  mesh(S(.55),fur,[0,0,0],head).scale.set(1.1,.92,1);
+  const pupils=[];
+  [-1,1].forEach(x=>{
+    [mesh(new T.ConeGeometry(.2,.5,4),fur,[x*.33,.5,0],head),mesh(new T.ConeGeometry(.11,.3,4),pink,[x*.33,.46,.08],head)].forEach(e=>e.rotation.z=-x*.25);
+    mesh(S(.13),M(0xb6f06a,{emissive:0x335511}),[x*.22,.08,.46],head).scale.z=.6;
+    const p=mesh(S(.07),dk,[x*.22,.08,.55],head);p.scale.set(.45,1.4,.5);pupils.push(p);
+    mesh(S(.2),cream,[x*.12,-.15,.4],head).scale.set(1,.75,.8);
+    for(let k=-1;k<=1;k++){const w=mesh(C(.007,.007,.75),M(0xffffff),[x*.5,-.14+k*.05,.45],head);w.rotation.z=PI/2+x*k*.12}});
+  mesh(S(.05),pink,[0,-.08,.54],head);
+  const tail=[];for(let i=0;i<10;i++)tail.push(mesh(S(.2-i*.01),fur,[0,.3,-1],cat));
+  // mouse
+  const mouse=new T.Group();s.add(mouse);const gm=M(0x9aa0ad,{roughness:.8});
+  mesh(S(.25),gm,[0,.25,0],mouse).scale.set(.9,.8,1.6);
+  mesh(new T.ConeGeometry(.13,.36,16),gm,[0,.24,.42],mouse).rotation.x=PI/2;
+  mesh(S(.03),pink,[0,.24,.6],mouse);
+  [-1,1].forEach(x=>{mesh(S(.025),dk,[x*.07,.3,.5],mouse);mesh(C(.09,.09,.02),pink,[x*.13,.38,.28],mouse).rotation.x=PI/2});
+  const feet=[[-1,.2],[1,.2],[-1,-.2],[1,-.2]].map(([x,z])=>mesh(S(.06),pink,[x*.14,.05,z],mouse));
+  const mt=[];for(let i=0;i<7;i++)mt.push(mesh(S(.035),pink,[0,.2,-.4],mouse));
+  mouse.scale.setScalar(1.35);
+  return{s,upd(t,dt){
+    const th=t*.9,r=4.2;
+    mouse.position.set(Math.sin(th)*r,Math.abs(Math.sin(t*14))*.05,Math.cos(th)*r);mouse.rotation.y=th+PI/2;
+    feet.forEach((f,i)=>f.position.z=(i<2?.2:-.2)+Math.sin(t*14+i*PI)*.09);
+    mt.forEach((m,i)=>m.position.set(Math.sin(t*9-i)*.05*i,.15,-.4-i*.1));
+    const a=Math.atan2(mouse.position.x,mouse.position.z);
+    cat.rotation.y+=wrap(a-cat.rotation.y)*Math.min(1,dt*.9);
+    head.rotation.y=Math.max(-1.1,Math.min(1.1,wrap(a-cat.rotation.y)));
+    head.rotation.x=.28+Math.sin(t*3)*.02;head.rotation.z=Math.sin(t*1.3)*.05;
+    pupils.forEach(p=>p.scale.x=.4+Math.abs(Math.sin(t*.7))*.35);
+    tail.forEach((m,i)=>m.position.set(Math.sin(t*1.8-i*.5)*.09*i,.3+i*.07+i*i*.012,-.95-i*.17));
+    return{p:[Math.sin(t*.12)*10,4.2+Math.sin(t*.2),Math.cos(t*.12)*10],t:[0,1.4,0],f:48,k:30}}}}
+
+// ---------- 2. CAR ORBIT (same vertical axis) ----------
+function sceneCar(){
+  const s=mk(0x080b14,[20,55]);lights(s,.9,0xcfe0ff,[-6,12,8]);stage(s,16,0x10131d);
+  const road=mesh(B(22,.02,4.4),M(0x23262e,{roughness:.95}),[0,.01,0],s);road.castShadow=false;
+  for(let i=0;i<22;i++){const d=mesh(B(.8,.01,.12),M(0xffffff,{emissive:0xaaaaaa}),[-10.5+i,.03,0],s);d.castShadow=false}
+  const cy=0x35e6ff;
+  mesh(C(.1,.1,7),M(cy,{emissive:cy,emissiveIntensity:1.3}),[0,3.5,-4],s);
+  const pl=new T.PointLight(cy,1.6,18);pl.position.set(0,3,-4);s.add(pl);
+  const halos=[1.1,1.6,2.1].map((r,i)=>{const h=mesh(new T.TorusGeometry(r,.03,12,64),M(cy,{emissive:cy,emissiveIntensity:1}),[0,1.5+i*1.6,-4],s);h.rotation.x=PI/2;return h});
+  const car=new T.Group();s.add(car);const body=new T.Group();car.add(body);
+  const paint=M(0xe0242b,{metalness:.65,roughness:.28}),glass=M(0x0d1522,{metalness:.9,roughness:.08}),blk=M(0x0b0b0e);
+  mesh(B(1.9,.5,4.1),paint,[0,.62,0],body);
+  mesh(B(1.6,.55,2),glass,[0,1.15,-.2],body);
+  mesh(B(1.65,.06,1.9),paint,[0,1.46,-.2],body);
+  mesh(B(1.7,.12,1.2),paint,[0,.92,1.3],body);
+  [1,-1].forEach(z=>mesh(B(1.95,.28,.2),blk,[0,.42,z*2.05],body));
+  [-1,1].forEach(x=>{
+    mesh(B(.45,.16,.06),M(0xfff6d0,{emissive:0xfff0b0,emissiveIntensity:1.5}),[x*.65,.7,2.07],body);
+    mesh(B(.45,.14,.06),M(0xff2020,{emissive:0xff0000,emissiveIntensity:1.5}),[x*.65,.72,-2.07],body);
+    mesh(B(.06,.3,.06),blk,[x*.6,1.2,-1.85],body)});
+  mesh(B(1.6,.06,.4),blk,[0,1.38,-1.9],body);
+  mesh(B(1.7,.02,3.6),M(cy,{emissive:cy,emissiveIntensity:1.5}),[0,.2,0],body).castShadow=false;
+  const sp=new T.SpotLight(0xfff0cc,2,16,.5,.5);sp.position.set(0,.8,2);sp.target.position.set(0,0,10);car.add(sp,sp.target);
+  const spins=[],fronts=[],rim=M(0xcfd4dc,{metalness:1,roughness:.2}),tire=M(0x0a0a0a,{roughness:.9});
+  [[-1,1.35],[1,1.35],[-1,-1.35],[1,-1.35]].forEach(([x,z])=>{
+    const pv=new T.Group();pv.position.set(x*1,.42,z);car.add(pv);
+    const sp2=new T.Group();pv.add(sp2);
+    mesh(C(.42,.42,.3,28).rotateZ(PI/2),tire,[0,0,0],sp2);
+    mesh(C(.28,.28,.32,20).rotateZ(PI/2),rim,[0,0,0],sp2);
+    for(let i=0;i<3;i++){const b=mesh(B(.34,.07,.58),M(0x6a707a,{metalness:1,roughness:.3}),[0,0,0],sp2);b.rotation.x=i*PI/3}
+    spins.push(sp2);if(z>0)fronts.push(pv)});
+  return{s,upd(t,dt){
+    const om=.6,x=Math.sin(t*om)*8,vx=Math.cos(t*om)*8*om,TURN=false; // TURN=true makes the car U-turn at each end
+    car.position.set(x,0,0);
+    const dh=TURN?wrap((vx>=0?PI/2:-PI/2)-car.rotation.y):0;car.rotation.y=TURN?car.rotation.y+dh*Math.min(1,dt*5):PI/2;
+    body.rotation.x=Math.sin(t*om)*8*om*om*.012;body.rotation.z=Math.max(-.05,Math.min(.05,dh*.05));body.position.y=Math.sin(t*3)*.004;
+    spins.forEach(w=>w.rotation.x+=dt*(TURN?Math.abs(vx):vx)/.42);fronts.forEach(p=>p.rotation.y=Math.max(-.5,Math.min(.5,dh*1.2)));
+    halos.forEach((h,i)=>{h.rotation.z=t*(i%2?1:-1)*.8;h.position.y=1.5+i*1.6+Math.sin(t+i)*.15});
+    return{p:[Math.sin(t*.1)*4,3.4+Math.sin(t*.2)*.6,(cam.aspect<1?20:12)+Math.sin(t*.17)*1.5],t:[0,1.1,0],f:46,k:30}}}}
+
+// ---------- 3. THE CONVERSATION ----------
+function person(col,one,sk){
+  const g=new T.Group(),skin=M(sk||0xe0ac8c,{roughness:.6}),cl=M(col,{roughness:.55}),dk=M(0x15171f);
+  const P=(par,x,y,z)=>{const o=new T.Group();o.position.set(x,y,z);par.add(o);return o};
+  mesh(C(.34,.42,1.1),cl,[0,2.05,0],g);mesh(S(.4),cl,[0,1.55,0],g);mesh(C(.1,.12,.25),skin,[0,2.65,0],g);
+  const head=P(g,0,2.75,0);mesh(S(.3),skin,[0,.2,0],head);mesh(S(.315),dk,[0,.27,-.05],head);
+  const brows=[];
+  const eyes=[];
+  [-1,1].forEach(s=>{eyes.push(mesh(S(.04),dk,[s*.11,.24,.27],head));brows.push(mesh(B(.13,.025,.03),dk,[s*.11,.33,.28],head))});
+  const mouth=mesh(B(.1,.03,.03),M(0x6a2323),[0,.07,.29],head);
+  const arm=s=>{const sh=P(g,s*.5,2.5,0);mesh(C(.09,.08,.75),cl,[0,-.375,0],sh);const el=P(sh,0,-.75,0);mesh(C(.08,.07,.7),cl,[0,-.35,0],el);mesh(S(.09),skin,[0,-.72,0],el);return[sh,el]};
+  const[armL,elL]=arm(1),[armR,elR]=arm(-1);armL.rotation.z=.12;armR.rotation.z=-.15;
+  const shoe=M(0x0a0a0c);
+  const leg=s=>{const h=P(g,s*.2,1.5,0);mesh(C(.15,.13,.75),dk,[0,-.375,0],h);const k=P(h,0,-.75,0);mesh(C(.13,.1,.75),dk,[0,-.375,0],k);mesh(B(.2,.1,.38),shoe,[0,-.7,.08],k)};
+  leg(1);
+  if(one){
+    const h=P(g,-.2,1.5,0);mesh(C(.15,.14,.42),dk,[0,-.21,0],h);mesh(S(.145),dk,[0,-.42,0],h);
+    const wood=M(0x8a5a2b,{roughness:.6}),a=new T.Vector3(-.55,2.35,0),b=new T.Vector3(-.85,0,.3);
+    const pole=mesh(C(.045,.04,a.distanceTo(b)),wood,a.clone().add(b).multiplyScalar(.5).toArray(),g);
+    pole.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),a.clone().sub(b).normalize());
+    mesh(B(.34,.07,.12),wood,[-.55,2.38,0],g);mesh(B(.18,.05,.05),wood,[-.72,1.1,.02],g)}
+  else leg(-1);
+  if(sk){const wh=M(0xf4f4f6,{roughness:.8}),br=M(0x7b4a2d,{roughness:.9});
+    mesh(C(.19,.27,.1,24),wh,[0,2.63,0],g);
+    [-1,1].forEach(q=>mesh(S(.15),br,[q*.43,2.57,0],g).scale.set(1,.5,1.1));
+    mesh(B(.15,.2,.03),br,[.17,1.9,.37],g);mesh(B(.015,.55,.01),M(0xc9d2e6),[0,2.3,.37],g)}
+  return{g,head,brows,eyes,mouth,armL,elL,armR,elR}}
+function tag(txt){const c=document.createElement('canvas');c.width=256;c.height=64;const x=c.getContext('2d');
+  x.fillStyle='#fff';x.font='700 30px system-ui';x.textAlign='center';x.fillText(txt,128,42);
+  const sp=new T.Sprite(new T.SpriteMaterial({map:new T.CanvasTexture(c),transparent:true,opacity:.8}));sp.scale.set(2,.5,1);return sp}
+const cap=document.getElementById('cap');let capKey='';
+// ---- EDIT THESE ----
+const NAMES={lead:'DANIEL',call:'Daniel',other:'JHAY'}; // lead = one-legged figure with your face; call = name spoken in dialogue
+const FACE='me.mp4',FLIP=true; // silent face video next to index.html; set FLIP=false if mirrored
+let vid=null,fcx,ftex,maskC,fOn=false;
+function addFace(p){
+  vid=document.createElement('video');Object.assign(vid,{src:FACE,muted:true,loop:true,playsInline:true,preload:'auto'});
+  const cv=document.createElement('canvas');cv.width=336;cv.height=464;fcx=cv.getContext('2d');
+  maskC=document.createElement('canvas');maskC.width=336;maskC.height=464;const m=maskC.getContext('2d');
+  m.setTransform(1,0,0,1.38,0,0);const gr=m.createRadialGradient(168,168,0,168,168,168);
+  gr.addColorStop(0,'#fff');gr.addColorStop(.8,'#fff');gr.addColorStop(1,'rgba(255,255,255,0)');m.fillStyle=gr;m.fillRect(0,0,336,340);
+  ftex=new T.CanvasTexture(cv);ftex.encoding=T.sRGBEncoding;
+  vid.addEventListener('loadeddata',()=>{
+    vid.currentTime=7;
+    const f=new T.Mesh(new T.SphereGeometry(.304,40,30,PI/2-.61,1.22,PI/2-.8,1.6),M(0xffffff,{map:ftex,roughness:.6,transparent:true,emissive:0xffffff,emissiveMap:ftex,emissiveIntensity:.35}));
+    f.position.y=.2;p.head.add(f);p.eyes.concat(p.brows,[p.mouth]).forEach(o=>o.visible=false)},{once:true});
+  vid.load()}
+function faceUpd(talk){
+  if(!vid||vid.readyState<2)return;
+  if(talk!==fOn){fOn=talk;if(talk)vid.play().catch(()=>{});else{vid.pause();vid.currentTime=7}}
+  fcx.globalCompositeOperation='source-over';fcx.clearRect(0,0,336,464);
+  fcx.save();if(FLIP){fcx.translate(336,0);fcx.scale(-1,1)}fcx.drawImage(vid,0,0);fcx.restore();
+  fcx.globalCompositeOperation='destination-in';fcx.drawImage(maskC,0,0);ftex.needsUpdate=true}
+function sceneTalk(){
+  const s=mk(0x05060a,[8,34]);s.add(new T.AmbientLight(0x303850,.5));
+  const fl=mesh(new T.CircleGeometry(12,64),M(0x0d0f16,{roughness:.35,metalness:.4}));fl.rotation.x=-PI/2;fl.castShadow=false;s.add(fl);
+  const key=new T.SpotLight(0xffc98a,3,30,.5,.6);key.position.set(-6,9,5);key.target.position.set(-2,1.5,0);key.castShadow=true;key.shadow.mapSize.set(1024,1024);s.add(key,key.target);
+  const cold=new T.SpotLight(0x6f9bff,2.2,30,.5,.6);cold.position.set(7,8,5);cold.target.position.set(2,1.5,0);s.add(cold,cold.target);
+  const rim=new T.PointLight(0x3a5bff,2,14);rim.position.set(0,3,-5);s.add(rim);
+  const A=person(0x5b6f98,true,0x8d5a3e),Bp=person(0x2b3a67,false,0x7a4d33);addFace(A);
+  A.g.position.set(-2,0,0);A.g.rotation.y=PI/2;Bp.g.position.set(2,0,0);Bp.g.rotation.y=-PI/2;s.add(A.g,Bp.g);
+  const t1=tag(NAMES.lead);t1.position.set(-2,3.9,0);const t2=tag(NAMES.other);t2.position.set(2,3.9,0);s.add(t1,t2);
+  const N=300,pos=new Float32Array(N*3);for(let i=0;i<N;i++){pos[i*3]=(Math.random()-.5)*14;pos[i*3+1]=Math.random()*7;pos[i*3+2]=(Math.random()-.5)*10}
+  const gm=new T.BufferGeometry();gm.setAttribute('position',new T.BufferAttribute(pos,3));
+  s.add(new T.Points(gm,new T.PointsMaterial({color:0xffd9a0,size:.05,transparent:true,opacity:.6})));
+  const wide=[[0,2.4,7],[0,2.1,0]];
+  const L=[
+    {w:'B',x:'They said you wouldn’t make it back.',c:wide[0],t:wide[1],f:48,k:.2},
+    {w:'A',x:'They said a lot of things.',c:[-.5,2.9,2.7],t:[-2,2.8,0],f:42,k:.35},
+    {w:'B',x:'One leg, '+NAMES.call+'. Look at what you’re asking of yourself.',c:[.6,2.9,2.7],t:[2,2.8,0],f:42,k:.55},
+    {w:'A',x:'I’m looking at it. Every day.',c:[-.5,2.5,2.4],t:[-2,2.7,0],f:38,k:.65},
+    {w:'B',x:'Then why keep climbing?',c:[-4,3,3],t:[2,2.8,0],f:44,k:.8},
+    {w:'A',x:'Because the mountain never asks how many legs I have. Only whether I showed up.',c:[-4.6,.7,3.6],t:[-2,2.9,0],f:44,k:1},
+    {w:'B',x:'…Then show me.',c:[.6,2.9,2.7],t:[2,2.8,0],f:40,k:.6},
+    {w:'A',x:'Watch me.',c:[-.5,2.9,2.7],t:[-2,2.8,0],f:36,k:.3,g:1},
+    {w:'',x:'',c:[0,3,12],t:[0,2,0],f:50,k:.1,g:1}];
+  let st=0;L.forEach(l=>{l.d=Math.max(2.4,1.1+l.x.length*.06);l.s=st;st+=l.d});
+  const tot=st,col=new T.Color(),blue=new T.Color(0x3a5bff),red=new T.Color(0xff3b2f),gold=new T.Color(0xffc060);
+  let ki=3,ci=2.2,tk=0;
+  return{s,upd(t,dt){
+    const tt=t%tot;let i=L.findIndex((l,j)=>tt<l.s+l.d);if(i<0)i=L.length-1;const l=L[i],pr=(tt-l.s)/l.d;
+    const sp=l.w=='A'?A:l.w=='B'?Bp:null,ot=sp===A?Bp:sp===Bp?A:null;
+    const n=Math.floor((tt-l.s)*30),txt=l.x.slice(0,n),key=i+':'+Math.min(n,l.x.length);
+    if(key!==capKey){capKey=key;cap.innerHTML=l.w?'<b>'+(l.w=='A'?NAMES.lead:NAMES.other)+'</b>'+txt:''}
+    const talking=sp&&n<l.x.length+6;faceUpd(!!(sp===A&&talking));
+    [A,Bp].forEach(p=>{
+      const me=p===sp,k2=Math.min(1,dt*6);
+      p.armL.rotation.x=lerp(p.armL.rotation.x,me?-.9+Math.sin(t*3+(p===A?0:2))*.35*(1+tk):0,k2);
+      p.elL.rotation.x=lerp(p.elL.rotation.x,me?-.8+Math.sin(t*3.4)*.3:-.1,k2);
+      if(p===Bp){p.armR.rotation.x=lerp(p.armR.rotation.x,me?-.6+Math.sin(t*2.6)*.3:0,k2);p.elR.rotation.x=lerp(p.elR.rotation.x,me?-.9:-.1,k2)}
+      p.head.rotation.x=me?Math.sin(t*4)*.05-(l.k>.8&&p===A?.12:0):.06+Math.sin(t*.8)*.02;
+      p.head.rotation.z=me?Math.sin(t*2)*.04:0;
+      p.mouth.scale.y=me&&talking?.5+Math.abs(Math.sin(t*14))*2.2:1;
+      p.brows.forEach((b,j)=>b.rotation.z=(j?1:-1)*(me?.4*l.k:.18*tk))});
+    tk=lerp(tk,l.k,Math.min(1,dt*1.5));
+    key.intensity=lerp(key.intensity,sp===A?4.5:sp?1.3:2.5,Math.min(1,dt*3));
+    cold.intensity=lerp(cold.intensity,sp===Bp?3.8:sp?1.1:2,Math.min(1,dt*3));
+    col.copy(blue).lerp(red,Math.min(1,tk));if(l.g)col.copy(gold);
+    rim.color.lerp(col,Math.min(1,dt*2));rim.intensity=1.5+tk*3+(l.g?1.5:0);
+    const p=gm.attributes.position;for(let q=0;q<N;q++){let y=p.getY(q)+dt*.15;if(y>7)y=0;p.setY(q,y)}p.needsUpdate=true;
+    const sh=.015*(.3+tk),cc=l.c.map((v,j)=>v+(l.t[j]-v)*pr*.07+Math.sin(t*(7+j*2))*sh);
+    return{p:cc,t:l.t,f:l.f,k:2.2}}}}
+
+// ---------- scene manager ----------
+const sc=[sceneCat(),sceneCar(),sceneTalk()];
+let cur=0,yaw=0,pit=0,snap=1,acc=0,last=performance.now(),cf=50,dn=0,px=0,py=0;
+const cp=new T.Vector3(0,4,10),ct=new T.Vector3(),a=new T.Vector3(),b=new T.Vector3(),off=new T.Vector3(),Y=new T.Vector3(0,1,0);
+document.querySelectorAll('nav button').forEach(btn=>btn.onclick=()=>{
+  document.querySelectorAll('nav button').forEach(x=>x.classList.remove('on'));btn.classList.add('on');
+  cur=+btn.dataset.s;if(vid&&cur!==2){vid.pause();fOn=false}snap=1;acc=0;yaw=pit=0;capKey='x';cap.innerHTML=''});
+R.domElement.addEventListener('pointerdown',e=>{dn=1;px=e.clientX;py=e.clientY});
+addEventListener('pointerup',()=>dn=0);
+addEventListener('pointermove',e=>{if(!dn)return;yaw-=(e.clientX-px)*.005;pit=Math.max(-3,Math.min(5,pit+(e.clientY-py)*.02));px=e.clientX;py=e.clientY});
+function frame(now){
+  requestAnimationFrame(frame);
+  const dt=Math.min(.05,(now-last)/1000);last=now;acc+=dt;
+  const S0=sc[cur],v=S0.upd(acc,dt),k=snap?1:1-Math.exp(-dt*v.k);snap=0;
+  a.set(...v.p);b.set(...v.t);cp.lerp(a,k);ct.lerp(b,k);cf+=(v.f-cf)*k;
+  off.copy(cp).sub(ct).applyAxisAngle(Y,yaw);off.y+=pit;
+  cam.position.copy(ct).add(off);cam.lookAt(ct);
+  if(Math.abs(cam.fov-cf)>.01){cam.fov=cf;cam.updateProjectionMatrix()}
+  R.render(S0.s,cam)}
+requestAnimationFrame(frame);
+</script></body></html>
